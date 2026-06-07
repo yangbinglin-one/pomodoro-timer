@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍅 番茄钟</title>
+<style>
+  /* ===== Reset & Base ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    /* 柔和的渐变背景，给玻璃质感提供"背后内容" */
+    background: linear-gradient(135deg, #0a1628 0%, #0d2137 30%, #0b2a3e 60%, #0a1628 100%);
+    /* 动态光斑 */
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* 背景动态光斑 */
+  body::before {
+    content: '';
+    position: fixed;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,180,216,0.15) 0%, transparent 70%);
+    top: -200px; left: -150px;
+    animation: floatBlob1 20s ease-in-out infinite;
+    pointer-events: none;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,180,216,0.1) 0%, transparent 70%);
+    bottom: -180px; right: -120px;
+    animation: floatBlob2 25s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes floatBlob1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(80px, 60px) scale(1.15); }
+    66% { transform: translate(-30px, 40px) scale(0.9); }
+  }
+  @keyframes floatBlob2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-60px, -50px) scale(1.2); }
+    66% { transform: translate(40px, -30px) scale(0.85); }
+  }
+
+  /* ===== 主卡片 —— 玻璃质感 ===== */
+  .card {
+    position: relative;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 28px;
+    padding: 48px 44px 40px;
+    min-width: 400px;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    text-align: center;
+    transition: box-shadow 0.4s;
+  }
+
+  /* ===== 标题 ===== */
+  .title {
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+  .mode-badge {
+    display: inline-block;
+    padding: 4px 18px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 16px;
+    background: rgba(0, 180, 216, 0.2);
+    color: #00B4D8;
+    border: 1px solid rgba(0, 180, 216, 0.25);
+    transition: all 0.35s;
+  }
+  .mode-badge.break {
+    background: rgba(144, 200, 80, 0.2);
+    color: #90c850;
+    border-color: rgba(144, 200, 80, 0.25);
+  }
+
+  /* ===== 时间显示 ===== */
+  .timer {
+    font-size: 7rem;
+    font-weight: 200;
+    font-variant-numeric: tabular-nums;
+    color: #e0f7ff;
+    letter-spacing: 0.04em;
+    line-height: 1.15;
+    text-shadow: 0 0 60px rgba(0, 180, 216, 0.35);
+    margin: 8px 0 28px;
+    transition: color 0.4s, text-shadow 0.4s;
+  }
+  .timer.break {
+    color: #d8f0c0;
+    text-shadow: 0 0 50px rgba(144, 200, 80, 0.3);
+  }
+  .timer.warning {
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+
+  /* ===== 按钮区 ===== */
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .btn {
+    padding: 11px 26px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 0.95rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    color: #e0f7ff;
+    background: rgba(0, 180, 216, 0.15);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    transition: transform 0.18s, background 0.25s, box-shadow 0.25s, border-color 0.25s;
+    outline: none;
+  }
+  .btn:hover {
+    transform: scale(1.06);
+    background: rgba(0, 180, 216, 0.28);
+    border-color: rgba(0, 180, 216, 0.45);
+    box-shadow: 0 4px 18px rgba(0, 180, 216, 0.2);
+  }
+  .btn:active {
+    transform: scale(0.94);
+    transition: transform 0.08s;
+  }
+
+  /* 主要按钮 */
+  .btn--primary {
+    background: rgba(0, 180, 216, 0.32);
+    border-color: rgba(0, 180, 216, 0.4);
+    font-weight: 600;
+  }
+  .btn--primary:hover {
+    background: rgba(0, 180, 216, 0.5);
+  }
+
+  /* 模式切换按钮 */
+  .btn--mode {
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 0.85rem;
+    padding: 9px 20px;
+  }
+  .btn--mode:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  /* ===== 番茄计数 ===== */
+  .counter {
+    margin-top: 18px;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.45);
+    letter-spacing: 0.03em;
+  }
+  .counter span {
+    color: #00B4D8;
+    font-weight: 600;
+    font-size: 1.1em;
+  }
+
+  /* ===== 通知卡片 ===== */
+  .toast {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-120px);
+    z-index: 100;
+    padding: 16px 32px;
+    border-radius: 16px;
+    background: rgba(0, 180, 216, 0.18);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(0, 180, 216, 0.35);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+    color: #e0f7ff;
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    opacity: 0;
+    transition: transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+                opacity 0.35s;
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  .toast.break-toast {
+    background: rgba(144, 200, 80, 0.18);
+    border-color: rgba(144, 200, 80, 0.35);
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="title">番茄钟</div>
+  <div class="mode-badge" id="badge">🍅 专注</div>
+
+  <div class="timer" id="timer">25:00</div>
+
+  <div class="btn-row">
+    <button class="btn btn--primary" id="btnStart" title="开始计时">开始</button>
+    <button class="btn" id="btnPause" title="暂停计时">暂停</button>
+    <button class="btn" id="btnReset" title="重置计时">重置</button>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn--mode" id="btnMode" title="切换到休息模式">☕ 休息模式</button>
+  </div>
+
+  <div class="counter">已完成 <span id="doneCount">0</span> 个番茄</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ===== DOM 引用 ===== */
+  const elTimer    = document.getElementById('timer');
+  const elBadge    = document.getElementById('badge');
+  const elBtnStart = document.getElementById('btnStart');
+  const elBtnPause = document.getElementById('btnPause');
+  const elBtnMode  = document.getElementById('btnMode');
+  const elBtnReset = document.getElementById('btnReset');
+  const elDone     = document.getElementById('doneCount');
+  const elToast    = document.getElementById('toast');
+
+  /* ===== 常量 ===== */
+  const FOCUS_SECONDS = 25 * 60;  // 25:00
+  const BREAK_SECONDS =  5 * 60;  //  5:00
+  const STORAGE_KEY   = 'pomodoro_state';
+
+  /* ===== 状态 ===== */
+  let mode        = 'focus';       // 'focus' | 'break'
+  let remaining   = FOCUS_SECONDS; // 当前剩余秒数
+  let running     = false;         // 是否正在倒计时
+  let intervalId  = null;          // setInterval 句柄
+  let deadline    = null;          // Date.now() + remaining*1000（用于抗漂移）
+  let doneCount   = 0;             // 已完成番茄数
+  let notificationGranted = false; // 通知权限
+
+  /* ===== 工具函数 ===== */
+  function fmt(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  function totalSeconds(modeFlag) {
+    return modeFlag === 'focus' ? FOCUS_SECONDS : BREAK_SECONDS;
+  }
+
+  /* ===== 音效（Web Audio API，无需外部文件）===== */
+  var audioCtx = null;
+  function getCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // 某些浏览器需要 resume（自动播放策略）
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  // 短促点击音
+  function playClick() {
+    try {
+      var ctx = getCtx();
+      var t = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, t);
+      osc.frequency.exponentialRampToValueAtTime(400, t + 0.08);
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.1);
+    } catch (_) {}
+  }
+
+  // 开始计时 —— 上升音
+  function playStart() {
+    try {
+      var ctx = getCtx();
+      var t = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, t);
+      osc.frequency.exponentialRampToValueAtTime(880, t + 0.2);
+      gain.gain.setValueAtTime(0.15, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.3);
+    } catch (_) {}
+  }
+
+  // 倒计时归零 —— 双音符提示音
+  function playChime(focusDone) {
+    try {
+      var ctx = getCtx();
+      var t = ctx.currentTime;
+      var notes = focusDone
+        ? [523, 659, 784]  // C5 E5 G5 —— 番茄完成，明亮
+        : [440, 554, 660]; // A4 C#5 E5 —— 休息结束，温和
+      notes.forEach(function (freq, i) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        var startT = t + i * 0.15;
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.16, startT);
+        gain.gain.exponentialRampToValueAtTime(0.001, startT + 0.35);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(startT);
+        osc.stop(startT + 0.4);
+      });
+    } catch (_) {}
+  }
+
+  /* ===== UI 更新 ===== */
+  function updateUI() {
+    elTimer.textContent = fmt(remaining);
+
+    // 模式徽章
+    if (mode === 'focus') {
+      elBadge.textContent = '🍅 专注';
+      elBadge.classList.remove('break');
+      elTimer.classList.remove('break');
+    } else {
+      elBadge.textContent = '☕ 休息';
+      elBadge.classList.add('break');
+      elTimer.classList.add('break');
+    }
+
+    // 按钮文字
+    elBtnMode.textContent = mode === 'focus' ? '☕ 休息模式' : '🍅 番茄模式';
+    elBtnStart.textContent = '开始';
+
+    // 最后 10 秒警告
+    elTimer.classList.toggle('warning', running && remaining <= 10 && remaining > 0);
+
+    // 计数
+    elDone.textContent = doneCount;
+  }
+
+  /* ===== 定时器控制 ===== */
+  function stopTimer() {
+    if (intervalId !== null) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+    running = false;
+    deadline = null;
+  }
+
+  function tick() {
+    if (!running || deadline === null) return;
+
+    const now = Date.now();
+    const left = Math.max(0, Math.round((deadline - now) / 1000));
+    remaining = left;
+
+    updateUI();
+    persist();
+
+    if (remaining <= 0) {
+      // 倒计时归零
+      stopTimer();
+      switchMode();
+    }
+  }
+
+  function startTimer() {
+    if (running) return;
+
+    // 如果已经归零，先重置
+    if (remaining <= 0) {
+      remaining = totalSeconds(mode);
+      updateUI();
+    }
+
+    playStart();
+    deadline = Date.now() + remaining * 1000;
+    running = true;
+    intervalId = setInterval(tick, 250); // 高频刷新保证 UI 流畅
+    updateUI();
+    persist();
+
+    // 提前请求通知权限
+    requestNotification();
+  }
+
+  function pauseTimer() {
+    if (!running) return;
+    // 先计算剩余时间，再停止（stopTimer 会清掉 deadline）
+    remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    playClick();
+    stopTimer();
+    updateUI();
+    persist();
+  }
+
+  function resetTimer() {
+    playClick();
+    stopTimer();
+    remaining = totalSeconds(mode);
+    deadline = null;
+    updateUI();
+    persist();
+  }
+
+  /* ===== 模式切换 ===== */
+  function switchMode() {
+    const wasFocus = mode === 'focus';
+
+    if (wasFocus) {
+      // 完成一个番茄！
+      doneCount++;
+    }
+
+    // 切换模式
+    mode = wasFocus ? 'break' : 'focus';
+    remaining = totalSeconds(mode);
+    deadline = null;
+    running = false;
+    updateUI();
+    persist();
+
+    // 音效
+    playChime(wasFocus);
+
+    // 桌面通知
+    showNotification(
+      wasFocus ? '🍅 番茄完成！休息一下吧~' : '☕ 休息结束，开始新番茄！',
+      wasFocus ? 'toast' : 'toast break-toast'
+    );
+
+    // 短暂弹入动画
+    showToast(wasFocus ? '🍅 专注完成，休息 5 分钟 ☕' : '☕ 休息结束，回到专注 🍅',
+              wasFocus ? '' : 'break-toast');
+  }
+
+  function toggleMode() {
+    playClick();
+    if (running) {
+      // 运行中切换：先停，再切
+      stopTimer();
+    }
+    mode = mode === 'focus' ? 'break' : 'focus';
+    remaining = totalSeconds(mode);
+    deadline = null;
+    updateUI();
+    persist();
+  }
+
+  /* ===== 桌面通知 ===== */
+  function requestNotification() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      notificationGranted = true;
+      return;
+    }
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(function (p) {
+        if (p === 'granted') notificationGranted = true;
+      });
+    }
+  }
+
+  function showNotification(body, toastClass) {
+    // 浏览器桌面通知
+    if (notificationGranted && 'Notification' in window && document.hidden) {
+      try { new Notification('番茄钟', { body: body, icon: '🍅' }); } catch (_) {}
+    }
+  }
+
+  /* ===== Toast 弹入动画 ===== */
+  let toastTimer = null;
+  function showToast(message, extraClass) {
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    elToast.textContent = message;
+    elToast.className = 'toast ' + extraClass;
+    // 强制回流后加入 show
+    void elToast.offsetWidth;
+    elToast.classList.add('show');
+    toastTimer = setTimeout(function () {
+      elToast.classList.remove('show');
+      toastTimer = null;
+    }, 2200);
+  }
+
+  /* ===== localStorage 持久化 ===== */
+  function persist() {
+    try {
+      var data = {
+        mode:      mode,
+        remaining: remaining,
+        running:   running,
+        deadline:  deadline,
+        doneCount: doneCount
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (_) { /* 忽略存储错误 */ }
+  }
+
+  function restore() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      var data = JSON.parse(raw);
+      mode      = data.mode      || 'focus';
+      doneCount = data.doneCount || 0;
+
+      if (data.running && data.deadline) {
+        // 曾经在运行：根据 deadline 恢复
+        var now = Date.now();
+        var left = Math.round((data.deadline - now) / 1000);
+        if (left > 0) {
+          remaining = left;
+          running   = true;
+          deadline  = data.deadline;
+          intervalId = setInterval(tick, 250);
+        } else {
+          // 已经超时，视为归零
+          remaining = 0;
+          running   = false;
+          deadline  = null;
+          // 触发切换
+          switchModeAfterRestore();
+        }
+      } else {
+        remaining = data.remaining != null ? data.remaining : totalSeconds(mode);
+        running   = false;
+        deadline  = null;
+      }
+    } catch (_) {
+      remaining = totalSeconds(mode);
+    }
+    updateUI();
+  }
+
+  function switchModeAfterRestore() {
+    // 页面加载时如果发现已超时，自动切换模式
+    const wasFocus = mode === 'focus';
+    if (wasFocus) doneCount++;
+    mode = wasFocus ? 'break' : 'focus';
+    remaining = totalSeconds(mode);
+    running = false;
+    deadline = null;
+    updateUI();
+    persist();
+    showToast(wasFocus ? '🍅 专注完成，休息 5 分钟 ☕' : '☕ 休息结束，回到专注 🍅',
+              wasFocus ? '' : 'break-toast');
+  }
+
+  /* ===== 事件绑定 ===== */
+  elBtnStart.addEventListener('click', startTimer);
+  elBtnPause.addEventListener('click', pauseTimer);
+  elBtnReset.addEventListener('click', resetTimer);
+  elBtnMode.addEventListener('click', toggleMode);
+
+  // 键盘快捷键：空格 = 开始/暂停，R = 重置
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      running ? pauseTimer() : startTimer();
+    }
+    if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      resetTimer();
+    }
+  });
+
+  // 页面即将关闭时保存最新状态（包含准确的 remaining）
+  window.addEventListener('beforeunload', function () {
+    if (running && deadline) {
+      remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    }
+    persist();
+  });
+
+  // 初始请求通知权限（非阻塞）
+  requestNotification();
+
+  /* ===== 启动 ===== */
+  restore();
+})();
+</script>
+
+</body>
+</html>
